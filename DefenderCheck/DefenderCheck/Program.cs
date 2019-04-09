@@ -79,9 +79,7 @@ namespace DefenderCheck
             [Description("Error")]
             Error
         }
-
     }
-}
 }
 
 
