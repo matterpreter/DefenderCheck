@@ -13,36 +13,34 @@ namespace DefenderCheck
         static void Main(string[] args)
         {
             //Initial file parse
-            string targetfile = @"C:\Users\matt\Desktop\deadbeef.txt";
+            string targetfile = args[0];
             string testfilepath = @"C:\Temp\testfile.txt";
             string detectionStatus = null;
-            byte[] filecontents = File.ReadAllBytes(targetfile);
-            int filesize = filecontents.Length;
-            Console.WriteLine("Target file size: {0} bytes", filecontents.Length);
+            byte[] originalfilecontents = File.ReadAllBytes(targetfile);
+            int originalfilesize = originalfilecontents.Length;
+            Console.WriteLine("Target file size: {0} bytes", originalfilecontents.Length);
 
-            //First halfsplit to determine which half of the file the detection stems from
-            Console.WriteLine("Trying first halfsplit");
-            byte[] splitfile = HalfSplitter(filecontents);
-            Console.WriteLine("First halfsplit size: {0} bytes", splitfile.Length);
-            File.WriteAllBytes(testfilepath, splitfile);
-            
-            //Scan the first half
-            Console.WriteLine("Scanning first split");
-            detectionStatus = Scan(testfilepath).ToString();
-            Console.WriteLine(detectionStatus);
-            if (detectionStatus.Equals("ThreatFound"))
-            {
-                Console.WriteLine("Threat found. Detection stems from fist half of the file.");
+            byte[] splitarray1 = new byte[originalfilesize/2];
+            byte[] splitarray2 = new byte[originalfilesize]; //writing to this buffer fixes it, but we can't use this buffer. We probably need to instantiate the first buffer and then just work from there
+            Array.Copy(originalfilecontents, splitarray1, splitarray1.Length);
 
-            }
-            else if (detectionStatus.Equals("NoThreatFound"))
+            while (splitarray1.Length > 200)
             {
-                Console.WriteLine("Threat not found. Detection stems from the second half of the file.");
-            }
-            else
-            {
-                Console.WriteLine("Something went wrong...");
-                Environment.Exit(1);
+                Console.WriteLine("Testing {0} bytes", splitarray1.Length);
+                File.WriteAllBytes(testfilepath, splitarray1);
+                detectionStatus = Scan(testfilepath).ToString();
+                if (detectionStatus.Equals("ThreatFound"))
+                {
+                    Console.WriteLine("Threat found. Halfsplitting again...");
+                    byte[] temparray = HalfSplitter(splitarray1);
+                    Array.Copy(temparray, splitarray1, temparray.Length);
+                }
+                else if (detectionStatus.Equals("NoThreatFound"))
+                {
+                    Console.WriteLine("No threat found. Going up 50% of current size.");
+                    byte[] temparray = Overshot(originalfilecontents, splitarray1.Length);
+                    Buffer.BlockCopy(temparray, 0, splitarray2, 0, temparray.Length);
+                }
             }
 
             Console.ReadKey();
@@ -59,9 +57,10 @@ namespace DefenderCheck
         public static byte[] Overshot(byte[] originalarray, int splitarraysize)
         {
             int newsize = (splitarraysize * 3)/2; //Lazy math to get 150% because of double/int syntax ugliness
+            Console.WriteLine("newsize: {0}", newsize);
             byte[] newarray = new byte[newsize];
-            Array.Copy(originalarray, newarray, newarray.Length);
-            return newarray;
+            Buffer.BlockCopy(originalarray, 0, newarray, 0, newarray.Length);
+            return newarray;            
         }
 
         //Adapted from https://github.com/yolofy/AvScan/blob/master/src/AvScan.WindowsDefender/WindowsDefenderScanner.cs
