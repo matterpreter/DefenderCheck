@@ -7,24 +7,61 @@ namespace DefenderCheck
 {
     class Program
     {
+        //TODO:
+        //Disable automatic submissions in the registry and restore the original value if it was set
+
         static void Main(string[] args)
         {
-            string targetfile = args[0];
+            //Initial file parse
+            string targetfile = @"C:\Users\matt\Desktop\deadbeef.txt";
             string testfilepath = @"C:\Temp\testfile.txt";
+            string detectionStatus = null;
             byte[] filecontents = File.ReadAllBytes(targetfile);
-
             int filesize = filecontents.Length;
             Console.WriteLine("Target file size: {0} bytes", filecontents.Length);
 
-            byte[] splitfile = new byte[filecontents.Length / 2];
-            Array.Copy(filecontents, splitfile, filecontents.Length / 2);
+            //First halfsplit to determine which half of the file the detection stems from
+            Console.WriteLine("Trying first halfsplit");
+            byte[] splitfile = HalfSplitter(filecontents);
             Console.WriteLine("First halfsplit size: {0} bytes", splitfile.Length);
             File.WriteAllBytes(testfilepath, splitfile);
+            
+            //Scan the first half
+            Console.WriteLine("Scanning first split");
+            detectionStatus = Scan(testfilepath).ToString();
+            Console.WriteLine(detectionStatus);
+            if (detectionStatus.Equals("ThreatFound"))
+            {
+                Console.WriteLine("Threat found. Detection stems from fist half of the file.");
 
-            var detected = Scan(testfilepath);
-            Console.WriteLine(detected);
+            }
+            else if (detectionStatus.Equals("NoThreatFound"))
+            {
+                Console.WriteLine("Threat not found. Detection stems from the second half of the file.");
+            }
+            else
+            {
+                Console.WriteLine("Something went wrong...");
+                Environment.Exit(1);
+            }
 
             Console.ReadKey();
+        }
+
+        public static byte[] HalfSplitter(byte[] originalarray) //Will round down to nearest int
+        {
+            int arraysize = originalarray.Length;
+            byte[] splitarray = new byte[arraysize / 2];
+            Array.Copy(originalarray, splitarray, arraysize / 2);
+            return splitarray;
+        }
+
+        public static byte[] Overshot(byte[] originalarray, int splitarraysize)
+        {
+            int newsize = (splitarraysize * 3)/2; //Lazy math to get 150% because of double/int syntax ugliness
+            byte[] newarray = new byte[newsize];
+            Array.Copy(originalarray, newarray, newarray.Length);
+            return newarray;
         }
 
         //Adapted from https://github.com/yolofy/AvScan/blob/master/src/AvScan.WindowsDefender/WindowsDefenderScanner.cs
