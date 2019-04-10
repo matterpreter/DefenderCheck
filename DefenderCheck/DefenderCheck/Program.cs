@@ -61,8 +61,12 @@ namespace DefenderCheck
 
         public static byte[] Overshot(byte[] originalarray, int splitarraysize)
         {
-            //int newsize = (splitarraysize * 3)/2; //Lazy math to get 150% because of double/int syntax ugliness
             int newsize = (originalarray.Length - splitarraysize) / 2 + splitarraysize;
+            if (newsize.Equals(originalarray.Length-1))
+            {
+                Console.WriteLine("Exhausted the search. The binary looks good to go!");
+                Environment.Exit(0);
+            }
             Console.WriteLine("newsize: {0}", newsize);
             byte[] newarray = new byte[newsize];
             Buffer.BlockCopy(originalarray, 0, newarray, 0, newarray.Length);
