@@ -105,11 +105,12 @@ namespace DefenderCheck
             byte[] splitarray = new byte[(originalarray.Length - lastgood)/2+lastgood];
             if (originalarray.Length == splitarray.Length +1)
             {
-                //int badOffset = int.Parse(originalarray.Length.ToString(), System.Globalization.NumberStyles.HexNumber);
                 Console.WriteLine("[!] Identified end of bad bytes at offset 0x{0:X} in the original file", originalarray.Length);
+                Scan(@"C:\Temp\testfile.exe", true);
                 byte[] offendingBytes = new byte[256];
                 Buffer.BlockCopy(originalarray, originalarray.Length - 256, offendingBytes, 0, 256);
                 HexDump(offendingBytes, 16);
+                File.Delete(@"C:\Temp\testfile.exe");
                 Environment.Exit(0);
             }
             Array.Copy(originalarray, splitarray, splitarray.Length);
@@ -130,7 +131,7 @@ namespace DefenderCheck
         }
 
         //Adapted from https://github.com/yolofy/AvScan/blob/master/src/AvScan.WindowsDefender/WindowsDefenderScanner.cs
-        public static ScanResult Scan(string file)
+        public static ScanResult Scan(string file, bool getsig = false)
         {
             if (!File.Exists(file))
             {
@@ -144,6 +145,7 @@ namespace DefenderCheck
                 CreateNoWindow = true,
                 ErrorDialog = false,
                 UseShellExecute = false,
+                RedirectStandardOutput = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             };
 
@@ -157,6 +159,22 @@ namespace DefenderCheck
                 return ScanResult.Timeout;
             }
 
+            if (getsig)
+            {
+                string stdout;
+                string sigName;
+                while ((stdout = process.StandardOutput.ReadLine()) != null)
+                {
+                    if (stdout.Contains("Threat  "))
+                    {
+                        string[] sig = stdout.Split(' ');
+                        sigName = sig[19]; // Lazy way to get the signature name from MpCmdRun
+                        Console.WriteLine($"File matched signature: \"{sigName}\"\n");
+                        break;
+                    }
+                }
+            }
+            
             switch (process.ExitCode)
             {
                 case 0:
@@ -166,6 +184,7 @@ namespace DefenderCheck
                 default:
                     return ScanResult.Error;
             }
+            
         }
 
         public enum ScanResult
