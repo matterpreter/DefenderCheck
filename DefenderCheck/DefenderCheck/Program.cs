@@ -13,49 +13,48 @@ namespace DefenderCheck
         static void Main(string[] args)
         {
             //Initial file parse
-            string targetfile = @"C:\Temp\mimikatz.exe";
+            string targetfile = args[0];
             string testfilepath = @"C:\Temp\testfile.exe";
             byte[] originalfilecontents = File.ReadAllBytes(targetfile);
             int originalfilesize = originalfilecontents.Length;
             Console.WriteLine("Target file size: {0} bytes", originalfilecontents.Length);
+            Console.WriteLine("Analyzing...\n");
 
             byte[] splitarray1 = new byte[originalfilesize/2];
             Buffer.BlockCopy(originalfilecontents, 0, splitarray1, 0, originalfilecontents.Length / 2);
             int lastgood = 0;
 
-            while (true) //Want to narrow it down to at most 200 bytes to start the manual search.
+            while (true)
             {
-                Console.WriteLine("Testing {0} bytes", splitarray1.Length);
+                //Console.WriteLine("Testing {0} bytes", splitarray1.Length);
                 File.WriteAllBytes(testfilepath, splitarray1);
                 string detectionStatus = Scan(testfilepath).ToString();
                 if (detectionStatus.Equals("ThreatFound"))
                 {
-                    Console.WriteLine("Threat found. Halfsplitting again...");
-                    //byte[] tempparray = new byte[];
-                    //Console.WriteLine("lastgood val: {0}", lastgood);
+                    //Console.WriteLine("Threat found. Halfsplitting again...");
                     byte[] temparray = HalfSplitter(splitarray1, lastgood);
                     Array.Resize(ref splitarray1, temparray.Length);
                     Array.Copy(temparray, splitarray1, temparray.Length);
                 }
                 else if (detectionStatus.Equals("NoThreatFound"))
                 {
-                    Console.WriteLine("No threat found. Going up 50% of current size.");
+                    //Console.WriteLine("No threat found. Going up 50% of current size.");
                     lastgood = splitarray1.Length;
                     byte[] temparray = Overshot(originalfilecontents, splitarray1.Length); //Create temp array with 1.5x more bytes
                     Array.Resize(ref splitarray1, temparray.Length);
                     Buffer.BlockCopy(temparray, 0, splitarray1, 0, temparray.Length);
                 }
             }
-
-            Console.ReadKey();
         }
 
         public static byte[] HalfSplitter(byte[] originalarray, int lastgood) //Will round down to nearest int
         {
-            //int arraysize = originalarray.Length;
-            //Console.WriteLine("len of orig: {0}", originalarray.Length);
             byte[] splitarray = new byte[(originalarray.Length - lastgood)/2+lastgood];
-            //Console.WriteLine("len of split: {0}", splitarray.Length);
+            if (originalarray.Length == splitarray.Length +1)
+            {
+                Console.WriteLine("[!] Identified end of bad bytes at {0}", originalarray.Length);
+                Environment.Exit(0);
+            }
             Array.Copy(originalarray, splitarray, splitarray.Length);
             return splitarray;
         }
