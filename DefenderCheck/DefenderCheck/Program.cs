@@ -1,15 +1,14 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Security.Principal;
 
 namespace DefenderCheck
 {
     class Program
     {
-        //TODO:
-        //Disable automatic submissions in the registry and restore the original value if it was set
-
         static void Main(string[] args)
         {
             //Initial file parse
@@ -44,6 +43,61 @@ namespace DefenderCheck
                     Array.Resize(ref splitarray1, temparray.Length);
                     Buffer.BlockCopy(temparray, 0, splitarray1, 0, temparray.Length);
                 }
+            }
+        }
+
+        public static void Setup()
+        {
+            //Default "enabled" values
+            object autoSampleSubmitOrigValue;
+            object realtimeProtectionOrigValue;
+
+            RegistryKey autoSampleSubmit = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows Defender\Spynet", true);
+            autoSampleSubmitOrigValue = autoSampleSubmit.GetValue("SubmitSamplesConsent");
+            if (autoSampleSubmitOrigValue.Equals(1))
+            {
+                if (!IsAdmin())
+                {
+                    Console.WriteLine("[-] Automatic sample submission is enabled. Either run this program as an admin or disable it manually.");
+                    Environment.Exit(1);
+                }
+                else
+                {
+                    Console.WriteLine("[-] Automatic sample submission is enabled. Disabling via the registry...");
+                    autoSampleSubmit.SetValue("SubmitSampleConstent", 0);
+                }
+            }
+            autoSampleSubmit.Close();
+
+            RegistryKey realtimeProtection = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows Defender\Real-Time Protection", true);
+            realtimeProtectionOrigValue = realtimeProtection.GetValue("DisableRealtimeMonitoring");
+            if (realtimeProtectionOrigValue.Equals(0))
+            {
+                if (!IsAdmin())
+                {
+                    Console.WriteLine("[-] Real-time protection is enabled. Either run this program as an admin or disable it manually.");
+                    Environment.Exit(1);
+                }
+                else
+                {
+                    Console.WriteLine("[-] Real-time protection is enabled. Disabling via the registry...");
+                    realtimeProtection.SetValue("DisableRealtimeMonitoring", 1);
+                }
+            }
+            realtimeProtection.Close();
+        }
+
+        public static bool IsAdmin()
+        {
+            WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            WindowsPrincipal principal = new WindowsPrincipal(identity);
+            if (principal.IsInRole(WindowsBuiltInRole.Administrator))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
 
