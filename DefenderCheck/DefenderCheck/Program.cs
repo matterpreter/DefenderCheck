@@ -13,36 +13,35 @@ namespace DefenderCheck
         static void Main(string[] args)
         {
             //Initial file parse
-            string targetfile = @"C:\Temp\lorem.txt";
-            string testfilepath = @"C:\Temp\testfile.txt";
-            string detectionStatus = null;
+            string targetfile = @"C:\Temp\mimikatz.exe";
+            string testfilepath = @"C:\Temp\testfile.exe";
             byte[] originalfilecontents = File.ReadAllBytes(targetfile);
             int originalfilesize = originalfilecontents.Length;
             Console.WriteLine("Target file size: {0} bytes", originalfilecontents.Length);
 
-            byte[] splitarray1 = new byte[originalfilesize];
-            splitarray1 = HalfSplitter(originalfilecontents);
-            byte[] splitarray2 = new byte[originalfilesize]; //writing to this buffer fixes it, but we can't use this buffer. We probably need to instantiate the first buffer and then just work from there
-            //Array.Copy(originalfilecontents, splitarray1, splitarray1.Length);
+            byte[] splitarray1 = new byte[originalfilesize/2];
+            Buffer.BlockCopy(originalfilecontents, 0, splitarray1, 0, originalfilecontents.Length / 2);
+            int lastgood = 0;
 
-            while (splitarray1.Length > 200)
+            while (true) //Want to narrow it down to at most 200 bytes to start the manual search.
             {
-                //Array.Copy(splitarray2, splitarray1, splitarray2.Length);
                 Console.WriteLine("Testing {0} bytes", splitarray1.Length);
                 File.WriteAllBytes(testfilepath, splitarray1);
-                detectionStatus = Scan(testfilepath).ToString();
+                string detectionStatus = Scan(testfilepath).ToString();
                 if (detectionStatus.Equals("ThreatFound"))
                 {
                     Console.WriteLine("Threat found. Halfsplitting again...");
-                    byte[] temparray = HalfSplitter(splitarray1);
+                    //byte[] tempparray = new byte[];
+                    //Console.WriteLine("lastgood val: {0}", lastgood);
+                    byte[] temparray = HalfSplitter(splitarray1, lastgood);
+                    Array.Resize(ref splitarray1, temparray.Length);
                     Array.Copy(temparray, splitarray1, temparray.Length);
                 }
                 else if (detectionStatus.Equals("NoThreatFound"))
                 {
                     Console.WriteLine("No threat found. Going up 50% of current size.");
-                    byte[] temparray = Overshot(originalfilecontents, splitarray1.Length); //Create temp array with 1.5x more byers
-                    //Array.Clear(splitarray1, 0, splitarray1.Length);
-                    
+                    lastgood = splitarray1.Length;
+                    byte[] temparray = Overshot(originalfilecontents, splitarray1.Length); //Create temp array with 1.5x more bytes
                     Array.Resize(ref splitarray1, temparray.Length);
                     Buffer.BlockCopy(temparray, 0, splitarray1, 0, temparray.Length);
                 }
@@ -51,11 +50,13 @@ namespace DefenderCheck
             Console.ReadKey();
         }
 
-        public static byte[] HalfSplitter(byte[] originalarray) //Will round down to nearest int
+        public static byte[] HalfSplitter(byte[] originalarray, int lastgood) //Will round down to nearest int
         {
-            int arraysize = originalarray.Length;
-            byte[] splitarray = new byte[arraysize / 2];
-            Array.Copy(originalarray, splitarray, arraysize / 2);
+            //int arraysize = originalarray.Length;
+            //Console.WriteLine("len of orig: {0}", originalarray.Length);
+            byte[] splitarray = new byte[(originalarray.Length - lastgood)/2+lastgood];
+            //Console.WriteLine("len of split: {0}", splitarray.Length);
+            Array.Copy(originalarray, splitarray, splitarray.Length);
             return splitarray;
         }
 
@@ -67,7 +68,6 @@ namespace DefenderCheck
                 Console.WriteLine("Exhausted the search. The binary looks good to go!");
                 Environment.Exit(0);
             }
-            Console.WriteLine("newsize: {0}", newsize);
             byte[] newarray = new byte[newsize];
             Buffer.BlockCopy(originalarray, 0, newarray, 0, newarray.Length);
             return newarray;            
@@ -127,5 +127,3 @@ namespace DefenderCheck
         }
     }
 }
-
-
