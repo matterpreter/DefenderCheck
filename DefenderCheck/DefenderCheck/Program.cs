@@ -20,6 +20,17 @@ namespace DefenderCheck
             }
 
             string targetfile = args[0];
+            string originalFileDetectionStatus = Scan(targetfile).ToString();
+            if (originalFileDetectionStatus.Equals("NoThreatFound"))
+            {
+                Console.WriteLine("[+] No threat found in submitted file!");
+            }
+
+            if (!Directory.Exists(@"C:\temp"))
+            {
+                Console.WriteLine(@"[-] C:\Temp\ doesn't exist. Creating it.");
+                Directory.CreateDirectory(@"C:\Temp");
+            }
             string testfilepath = @"C:\Temp\testfile.exe";
             byte[] originalfilecontents = File.ReadAllBytes(targetfile);
             int originalfilesize = originalfilecontents.Length;
@@ -53,16 +64,10 @@ namespace DefenderCheck
             }
         }
 
-        public static void Setup()
+        public static void Setup() //Not implementing this as the registry read function is broken
         {
             object autoSampleSubmitOrigValue;
             object realtimeProtectionOrigValue;
-
-            if (!Directory.Exists(@"C:\temp"))
-            {
-                Console.WriteLine(@"[-] C:\Temp\ doesn't exist. Creating it.");
-                Directory.CreateDirectory(@"C:\Temp");
-            }
 
             RegistryKey autoSampleSubmit = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows Defender\Spynet", true);
             autoSampleSubmitOrigValue = autoSampleSubmit.GetValue("SubmitSamplesConsent");
@@ -121,6 +126,7 @@ namespace DefenderCheck
                 Console.WriteLine("[!] Identified end of bad bytes at offset 0x{0:X} in the original file", originalarray.Length);
                 Scan(@"C:\Temp\testfile.exe", true);
                 byte[] offendingBytes = new byte[256];
+
                 if (originalarray.Length < 256)
                 {
                     Array.Resize(ref offendingBytes, originalarray.Length);
