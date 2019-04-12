@@ -12,7 +12,12 @@ namespace DefenderCheck
     {
         static void Main(string[] args)
         {
-            Setup();
+            //Setup();
+            bool debug = false;
+            if (args.Length == 2 && args[1].Equals("--debug"))
+            {
+                debug = true;
+            }
 
             string targetfile = args[0];
             string testfilepath = @"C:\Temp\testfile.exe";
@@ -27,19 +32,19 @@ namespace DefenderCheck
 
             while (true)
             {
-                //Console.WriteLine("Testing {0} bytes", splitarray1.Length);
+                if (debug) { Console.WriteLine("Testing {0} bytes", splitarray1.Length); }
                 File.WriteAllBytes(testfilepath, splitarray1);
                 string detectionStatus = Scan(testfilepath).ToString();
                 if (detectionStatus.Equals("ThreatFound"))
                 {
-                    //Console.WriteLine("Threat found. Halfsplitting again...");
+                    if (debug) { Console.WriteLine("Threat found. Halfsplitting again..."); }
                     byte[] temparray = HalfSplitter(splitarray1, lastgood);
                     Array.Resize(ref splitarray1, temparray.Length);
                     Array.Copy(temparray, splitarray1, temparray.Length);
                 }
                 else if (detectionStatus.Equals("NoThreatFound"))
                 {
-                    //Console.WriteLine("No threat found. Going up 50% of current size.");
+                    if (debug) { Console.WriteLine("No threat found. Going up 50% of current size."); };
                     lastgood = splitarray1.Length;
                     byte[] temparray = Overshot(originalfilecontents, splitarray1.Length); //Create temp array with 1.5x more bytes
                     Array.Resize(ref splitarray1, temparray.Length);
