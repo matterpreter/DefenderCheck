@@ -12,6 +12,8 @@ namespace DefenderCheck
     {
         static void Main(string[] args)
         {
+            Setup();
+
             string targetfile = args[0];
             string testfilepath = @"C:\Temp\testfile.exe";
             byte[] originalfilecontents = File.ReadAllBytes(targetfile);
@@ -50,6 +52,12 @@ namespace DefenderCheck
         {
             object autoSampleSubmitOrigValue;
             object realtimeProtectionOrigValue;
+
+            if (!Directory.Exists(@"C:\temp"))
+            {
+                Console.WriteLine(@"[-] C:\Temp\ doesn't exist. Creating it.");
+                Directory.CreateDirectory(@"C:\Temp");
+            }
 
             RegistryKey autoSampleSubmit = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows Defender\Spynet", true);
             autoSampleSubmitOrigValue = autoSampleSubmit.GetValue("SubmitSamplesConsent");
