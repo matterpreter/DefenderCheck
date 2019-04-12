@@ -3,7 +3,6 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Security.Principal;
 using System.Text;
 
 namespace DefenderCheck
@@ -12,7 +11,7 @@ namespace DefenderCheck
     {
         static void Main(string[] args)
         {
-            //Setup();
+            Setup();
             bool debug = false;
             if (args.Length == 2 && args[1].Equals("--debug"))
             {
@@ -23,14 +22,11 @@ namespace DefenderCheck
             string originalFileDetectionStatus = Scan(targetfile).ToString();
             if (originalFileDetectionStatus.Equals("NoThreatFound"))
             {
+                if (debug) { Console.WriteLine("Scanning the whole file first"); }
                 Console.WriteLine("[+] No threat found in submitted file!");
+                Environment.Exit(0);
             }
 
-            if (!Directory.Exists(@"C:\temp"))
-            {
-                Console.WriteLine(@"[-] C:\Temp\ doesn't exist. Creating it.");
-                Directory.CreateDirectory(@"C:\Temp");
-            }
             string testfilepath = @"C:\Temp\testfile.exe";
             byte[] originalfilecontents = File.ReadAllBytes(targetfile);
             int originalfilesize = originalfilecontents.Length;
@@ -64,58 +60,23 @@ namespace DefenderCheck
             }
         }
 
-        public static void Setup() //Not implementing this as the registry read function is broken
+        public static void Setup()
         {
-            object autoSampleSubmitOrigValue;
-            object realtimeProtectionOrigValue;
+            RegistryKey defenderService = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\Windows Defender");
+            object defenderServiceValue = defenderService.GetValue("DisableAntiSpyware");
+            if (!defenderServiceValue.Equals(0)) //This is the case in situations like Commando
+            {
+                Console.WriteLine("[-] The defender antispyware service is not enabled, so MpCmdRun will fail. Exiting...");
+                Environment.Exit(1);
+            }
+            defenderService.Close();
 
-            RegistryKey autoSampleSubmit = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows Defender\Spynet", true);
-            autoSampleSubmitOrigValue = autoSampleSubmit.GetValue("SubmitSamplesConsent");
-            if (autoSampleSubmitOrigValue.Equals(1))
+            if (!Directory.Exists(@"C:\temp"))
             {
-                if (!IsAdmin())
-                {
-                    Console.WriteLine("[-] Automatic sample submission is enabled. Either run this program as an admin or disable it manually.");
-                    Environment.Exit(1);
-                }
-                else
-                {
-                    Console.WriteLine("[-] Automatic sample submission is enabled. Disabling via the registry...");
-                    autoSampleSubmit.SetValue("SubmitSampleConstent", 0);
-                }
+                Console.WriteLine(@"[-] C:\Temp\ doesn't exist. Creating it.");
+                Directory.CreateDirectory(@"C:\Temp");
             }
-            autoSampleSubmit.Close();
 
-            RegistryKey realtimeProtection = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows Defender\Real-Time Protection", true);
-            realtimeProtectionOrigValue = realtimeProtection.GetValue("DisableRealtimeMonitoring");
-            if (realtimeProtectionOrigValue.Equals(0))
-            {
-                if (!IsAdmin())
-                {
-                    Console.WriteLine("[-] Real-time protection is enabled. Either run this program as an admin or disable it manually.");
-                    Environment.Exit(1);
-                }
-                else
-                {
-                    Console.WriteLine("[-] Real-time protection is enabled. Disabling via the registry...");
-                    realtimeProtection.SetValue("DisableRealtimeMonitoring", 1);
-                }
-            }
-            realtimeProtection.Close();
-        }
-
-        public static bool IsAdmin()
-        {
-            WindowsIdentity identity = WindowsIdentity.GetCurrent();
-            WindowsPrincipal principal = new WindowsPrincipal(identity);
-            if (principal.IsInRole(WindowsBuiltInRole.Administrator))
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
         }
 
         public static byte[] HalfSplitter(byte[] originalarray, int lastgood) //Will round down to nearest int
