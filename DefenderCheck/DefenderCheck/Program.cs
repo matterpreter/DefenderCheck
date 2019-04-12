@@ -116,7 +116,15 @@ namespace DefenderCheck
                 Console.WriteLine("[!] Identified end of bad bytes at offset 0x{0:X} in the original file", originalarray.Length);
                 Scan(@"C:\Temp\testfile.exe", true);
                 byte[] offendingBytes = new byte[256];
-                Buffer.BlockCopy(originalarray, originalarray.Length - 256, offendingBytes, 0, 256);
+                if (originalarray.Length < 256)
+                {
+                    Array.Resize(ref offendingBytes, originalarray.Length);
+                    Buffer.BlockCopy(originalarray, originalarray.Length, offendingBytes, 0, originalarray.Length);
+                }
+                else
+                {
+                    Buffer.BlockCopy(originalarray, originalarray.Length - 256, offendingBytes, 0, 256);
+                }
                 HexDump(offendingBytes, 16);
                 File.Delete(@"C:\Temp\testfile.exe");
                 Environment.Exit(0);
