@@ -11,7 +11,7 @@ namespace DefenderCheck
     {
         static void Main(string[] args)
         {
-            Setup();
+            //Setup();
             bool debug = false;
             if (args.Length == 2 && args[1].Equals("--debug"))
             {
@@ -60,24 +60,24 @@ namespace DefenderCheck
             }
         }
 
-        public static void Setup()
-        {
-            RegistryKey defenderService = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\Windows Defender");
-            object defenderServiceValue = defenderService.GetValue("DisableAntiSpyware");
-            if (!defenderServiceValue.Equals(0)) //This is the case in situations like Commando
-            {
-                Console.WriteLine("[-] The defender antispyware service is not enabled, so MpCmdRun will fail. Exiting...");
-                Environment.Exit(1);
-            }
-            defenderService.Close();
+        //public static void Setup()
+        //{
+        //    RegistryKey defenderService = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\Windows Defender");
+        //    object defenderServiceValue = defenderService.GetValue("DisableAntiSpyware");
+        //    if (!defenderServiceValue.Equals(0)) //This is the case in situations like Commando
+        //    {
+        //        Console.WriteLine("[-] The defender antispyware service is not enabled, so MpCmdRun will fail. Exiting...");
+        //        Environment.Exit(1);
+        //    }
+        //    defenderService.Close();
 
-            if (!Directory.Exists(@"C:\temp"))
-            {
-                Console.WriteLine(@"[-] C:\Temp\ doesn't exist. Creating it.");
-                Directory.CreateDirectory(@"C:\Temp");
-            }
+        //    if (!Directory.Exists(@"C:\temp"))
+        //    {
+        //        Console.WriteLine(@"[-] C:\Temp\ doesn't exist. Creating it.");
+        //        Directory.CreateDirectory(@"C:\Temp");
+        //    }
 
-        }
+        //}
 
         public static byte[] HalfSplitter(byte[] originalarray, int lastgood) //Will round down to nearest int
         {
