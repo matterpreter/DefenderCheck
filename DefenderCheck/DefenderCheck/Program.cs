@@ -17,6 +17,18 @@ namespace DefenderCheck
             {
                 debug = true;
             }
+            try
+            {
+                if (Directory.Exists("C:\\Temp") == false)
+                {
+                    Directory.CreateDirectory("C:\\Temp");
+                }
+            }
+            catch
+            {
+                Console.WriteLine("[!] ERROR Program needs the directory C:\\Temp to exist and be accessable by the program. It currently is not or does not. App tried to make the folder and could not. Fix and try again please.");
+                Environment.Exit(0);
+            }
 
             string targetfile = args[0];
             string originalFileDetectionStatus = Scan(targetfile).ToString();
