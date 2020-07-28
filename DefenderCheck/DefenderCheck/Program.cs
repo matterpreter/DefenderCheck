@@ -13,20 +13,32 @@ namespace DefenderCheck
         {
             //Setup();
             bool debug = false;
-            if (args.Length == 2 && args[1].Equals("--debug"))
+            if (args.Length == 2 && args[1].Contains("debug"))
             {
                 debug = true;
             }
 
             string targetfile = args[0];
+            if (!File.Exists(targetfile))
+            {
+                Console.Writeline("[-] Can't access the target file");
+                return;
+            }
+            
             string originalFileDetectionStatus = Scan(targetfile).ToString();
             if (originalFileDetectionStatus.Equals("NoThreatFound"))
             {
                 if (debug) { Console.WriteLine("Scanning the whole file first"); }
                 Console.WriteLine("[+] No threat found in submitted file!");
-                Environment.Exit(0);
+                return;
             }
-
+            
+            if (!Directory.Exists(@"C:\Temp")
+            {
+                Console.Writeline(@"[-] C:\Temp doesn't exist. Creating it...");
+                Directory.CreateDirectory(@"C:\Temp");
+            }
+                   
             string testfilepath = @"C:\Temp\testfile.exe";
             byte[] originalfilecontents = File.ReadAllBytes(targetfile);
             int originalfilesize = originalfilecontents.Length;
