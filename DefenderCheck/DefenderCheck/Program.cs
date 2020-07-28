@@ -21,7 +21,7 @@ namespace DefenderCheck
             string targetfile = args[0];
             if (!File.Exists(targetfile))
             {
-                Console.Writeline("[-] Can't access the target file");
+                Console.WriteLine("[-] Can't access the target file");
                 return;
             }
             
@@ -33,9 +33,9 @@ namespace DefenderCheck
                 return;
             }
             
-            if (!Directory.Exists(@"C:\Temp")
+            if (!Directory.Exists(@"C:\Temp"))
             {
-                Console.Writeline(@"[-] C:\Temp doesn't exist. Creating it...");
+                Console.WriteLine(@"[-] C:\Temp doesn't exist. Creating it...");
                 Directory.CreateDirectory(@"C:\Temp");
             }
                    
