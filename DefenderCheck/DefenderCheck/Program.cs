@@ -24,11 +24,11 @@ namespace DefenderCheck
                 Console.WriteLine("[-] Can't access the target file");
                 return;
             }
-            
+
+            if (debug) { Console.WriteLine("Scanning the whole file first"); }
             string originalFileDetectionStatus = Scan(targetfile).ToString();
             if (originalFileDetectionStatus.Equals("NoThreatFound"))
             {
-                if (debug) { Console.WriteLine("Scanning the whole file first"); }
                 Console.WriteLine("[+] No threat found in submitted file!");
                 return;
             }
@@ -109,7 +109,7 @@ namespace DefenderCheck
                 {
                     Buffer.BlockCopy(originalarray, originalarray.Length - 256, offendingBytes, 0, 256);
                 }
-                HexDump(offendingBytes, 16);
+                HexDump(offendingBytes, 16, originalarray.Length - offendingBytes.Length);
                 File.Delete(@"C:\Temp\testfile.exe");
                 Environment.Exit(0);
             }
@@ -202,7 +202,7 @@ namespace DefenderCheck
         }
 
         //Adapted from https://www.codeproject.com/Articles/36747/Quick-and-Dirty-HexDump-of-a-Byte-Array
-        public static void HexDump(byte[] bytes, int bytesPerLine = 16)
+        public static void HexDump(byte[] bytes, int bytesPerLine = 16, int offset = 0)
         {
             if (bytes == null)
             {
@@ -231,14 +231,15 @@ namespace DefenderCheck
 
             for (int i = 0; i < bytesLength; i += bytesPerLine)
             {
-                line[0] = HexChars[(i >> 28) & 0xF];
-                line[1] = HexChars[(i >> 24) & 0xF];
-                line[2] = HexChars[(i >> 20) & 0xF];
-                line[3] = HexChars[(i >> 16) & 0xF];
-                line[4] = HexChars[(i >> 12) & 0xF];
-                line[5] = HexChars[(i >> 8) & 0xF];
-                line[6] = HexChars[(i >> 4) & 0xF];
-                line[7] = HexChars[(i >> 0) & 0xF];
+                int address = offset + i;
+                line[0] = HexChars[(address >> 28) & 0xF];
+                line[1] = HexChars[(address >> 24) & 0xF];
+                line[2] = HexChars[(address >> 20) & 0xF];
+                line[3] = HexChars[(address >> 16) & 0xF];
+                line[4] = HexChars[(address >> 12) & 0xF];
+                line[5] = HexChars[(address >> 8) & 0xF];
+                line[6] = HexChars[(address >> 4) & 0xF];
+                line[7] = HexChars[(address >> 0) & 0xF];
 
                 int hexColumn = firstHexColumn;
                 int charColumn = firstCharColumn;
