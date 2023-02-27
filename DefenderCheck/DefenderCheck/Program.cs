@@ -9,139 +9,87 @@ namespace DefenderCheck
 {
     class Program
     {
+        private static string DefenderPath = Path.Combine(Environment.GetEnvironmentVariable("ProgramFiles"), "Windows Defender", "MpCmdRun.exe");
+
         static void Main(string[] args)
         {
-            //Setup();
-            bool debug = false;
-            if (args.Length == 2 && args[1].Contains("debug"))
-            {
-                debug = true;
-            }
-
             string targetfile = args[0];
             if (!File.Exists(targetfile))
             {
                 Console.WriteLine("[-] Can't access the target file");
                 return;
             }
-            
-            string originalFileDetectionStatus = Scan(targetfile).ToString();
-            if (originalFileDetectionStatus.Equals("NoThreatFound"))
-            {
-                if (debug) { Console.WriteLine("Scanning the whole file first"); }
-                Console.WriteLine("[+] No threat found in submitted file!");
-                return;
-            }
-            
-            if (!Directory.Exists(@"C:\Temp"))
-            {
-                Console.WriteLine(@"[-] C:\Temp doesn't exist. Creating it...");
-                Directory.CreateDirectory(@"C:\Temp");
-            }
-                   
-            string testfilepath = @"C:\Temp\testfile.exe";
-            byte[] originalfilecontents = File.ReadAllBytes(targetfile);
-            int originalfilesize = originalfilecontents.Length;
-            Console.WriteLine("Target file size: {0} bytes", originalfilecontents.Length);
-            Console.WriteLine("Analyzing...\n");
 
-            byte[] splitarray1 = new byte[originalfilesize/2];
-            Buffer.BlockCopy(originalfilecontents, 0, splitarray1, 0, originalfilecontents.Length / 2);
-            int lastgood = 0;
+            byte[] originalfilecontents = File.ReadAllBytes(targetfile);
+            int left = 0;
+            int mid = originalfilecontents.Length - 1;
+            int right = mid;
+
+            bool threatFound = false;
 
             while (true)
             {
-                if (debug) { Console.WriteLine("Testing {0} bytes", splitarray1.Length); }
-                File.WriteAllBytes(testfilepath, splitarray1);
-                string detectionStatus = Scan(testfilepath).ToString();
-                if (detectionStatus.Equals("ThreatFound"))
+                // Scan the file
+                ScanResult r = Scan(originalfilecontents, mid);
+
+                if (r == ScanResult.ThreatFound)
                 {
-                    if (debug) { Console.WriteLine("Threat found. Halfsplitting again..."); }
-                    byte[] temparray = HalfSplitter(splitarray1, lastgood);
-                    Array.Resize(ref splitarray1, temparray.Length);
-                    Array.Copy(temparray, splitarray1, temparray.Length);
-                }
-                else if (detectionStatus.Equals("NoThreatFound"))
+                    threatFound = true;
+
+                    // If it's stil a threat, search a smaller segment:
+                    right = mid;
+                    mid = left + ((mid - left) / 2);
+
+                    if (right == mid)
+                    {
+                        // No change, we're done.
+                        break;
+                    }
+                } 
+                else if (r == ScanResult.NoThreatFound)
                 {
-                    if (debug) { Console.WriteLine("No threat found. Going up 50% of current size."); };
-                    lastgood = splitarray1.Length;
-                    byte[] temparray = Overshot(originalfilecontents, splitarray1.Length); //Create temp array with 1.5x more bytes
-                    Array.Resize(ref splitarray1, temparray.Length);
-                    Buffer.BlockCopy(temparray, 0, splitarray1, 0, temparray.Length);
-                }
-            }
-        }
+                    // We skipped the bad part, expand!
+                    left = mid;
+                    mid = mid + ((right - mid) / 2);
 
-        //public static void Setup()
-        //{
-        //    RegistryKey defenderService = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\Windows Defender");
-        //    object defenderServiceValue = defenderService.GetValue("DisableAntiSpyware");
-        //    if (!defenderServiceValue.Equals(0)) //This is the case in situations like Commando
-        //    {
-        //        Console.WriteLine("[-] The defender antispyware service is not enabled, so MpCmdRun will fail. Exiting...");
-        //        Environment.Exit(1);
-        //    }
-        //    defenderService.Close();
-
-        //    if (!Directory.Exists(@"C:\temp"))
-        //    {
-        //        Console.WriteLine(@"[-] C:\Temp\ doesn't exist. Creating it.");
-        //        Directory.CreateDirectory(@"C:\Temp");
-        //    }
-
-        //}
-
-        public static byte[] HalfSplitter(byte[] originalarray, int lastgood) //Will round down to nearest int
-        {
-            byte[] splitarray = new byte[(originalarray.Length - lastgood)/2+lastgood];
-            if (originalarray.Length == splitarray.Length +1)
-            {
-                Console.WriteLine("[!] Identified end of bad bytes at offset 0x{0:X} in the original file", originalarray.Length);
-                Scan(@"C:\Temp\testfile.exe", true);
-                byte[] offendingBytes = new byte[256];
-
-                if (originalarray.Length < 256)
-                {
-                    Array.Resize(ref offendingBytes, originalarray.Length);
-                    Buffer.BlockCopy(originalarray, originalarray.Length, offendingBytes, 0, originalarray.Length);
+                    if (left == mid)
+                    {
+                        // No change, we're done.
+                        break;
+                    }
                 }
                 else
                 {
-                    Buffer.BlockCopy(originalarray, originalarray.Length - 256, offendingBytes, 0, 256);
+                    Console.WriteLine("Unexpected scan result: {0}. Aborting.", r);
+                    break;
                 }
-                HexDump(offendingBytes, 16);
-                File.Delete(@"C:\Temp\testfile.exe");
-                Environment.Exit(0);
             }
-            Array.Copy(originalarray, splitarray, splitarray.Length);
-            return splitarray;
+
+            if (threatFound)
+            {
+                Console.WriteLine("Threat found at byte 0x{0:X}:", mid);
+                int max = mid < 256 ? mid : 256;
+                byte[] tmp = new byte[max];
+                Buffer.BlockCopy(originalfilecontents, mid - max, tmp, 0, max);
+                HexDump(tmp);
+            } else
+            {
+                Console.WriteLine("No threats found!");
+            }
         }
 
-        public static byte[] Overshot(byte[] originalarray, int splitarraysize)
+        public static ScanResult Scan(byte[] fileBytes, int length, bool getsig = false)
         {
-            int newsize = (originalarray.Length - splitarraysize) / 2 + splitarraysize;
-            if (newsize.Equals(originalarray.Length-1))
+            string tmpFile = Path.GetTempFileName();
+            using (FileStream fs = File.OpenWrite(tmpFile))
             {
-                Console.WriteLine("Exhausted the search. The binary looks good to go!");
-                Environment.Exit(0);
-            }
-            byte[] newarray = new byte[newsize];
-            Buffer.BlockCopy(originalarray, 0, newarray, 0, newarray.Length);
-            return newarray;            
-        }
-
-        //Adapted from https://github.com/yolofy/AvScan/blob/master/src/AvScan.WindowsDefender/WindowsDefenderScanner.cs
-        public static ScanResult Scan(string file, bool getsig = false)
-        {
-            if (!File.Exists(file))
-            {
-                return ScanResult.FileNotFound;
+                fs.Write(fileBytes, 0, length);
             }
 
             var process = new Process();
-            var mpcmdrun = new ProcessStartInfo(@"C:\Program Files\Windows Defender\MpCmdRun.exe")
+            var mpcmdrun = new ProcessStartInfo(DefenderPath)
             {
-                Arguments = $"-Scan -ScanType 3 -File \"{file}\" -DisableRemediation -Trace -Level 0x10",
+                Arguments = $"-Scan -ScanType 3 -File \"{tmpFile}\" -DisableRemediation -Trace -Level 0x10",
                 CreateNoWindow = true,
                 ErrorDialog = false,
                 UseShellExecute = false,
@@ -151,7 +99,7 @@ namespace DefenderCheck
 
             process.StartInfo = mpcmdrun;
             process.Start();
-            process.WaitForExit(30000); //Wait 30s
+            process.WaitForExit(30000); //Wait up to 30s
 
             if (!process.HasExited)
             {
@@ -174,7 +122,9 @@ namespace DefenderCheck
                     }
                 }
             }
-            
+
+            File.Delete(tmpFile);
+
             switch (process.ExitCode)
             {
                 case 0:
@@ -184,8 +134,9 @@ namespace DefenderCheck
                 default:
                     return ScanResult.Error;
             }
-            
+
         }
+
 
         public enum ScanResult
         {
