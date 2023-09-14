@@ -11,7 +11,12 @@ namespace DefenderCheck
     {
         static void Main(string[] args)
         {
-            //Setup();
+            if (args.Length < 1)
+            {
+                Console.WriteLine("Usage: DefenderCheck.exe [path/to/file]");
+                return;
+            }
+            
             bool debug = false;
             if (args.Length == 2 && args[1].Contains("debug"))
             {
