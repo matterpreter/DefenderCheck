@@ -1,5 +1,4 @@
-﻿using Microsoft.Win32;
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -77,25 +76,6 @@ namespace DefenderCheck
             }
         }
 
-        //public static void Setup()
-        //{
-        //    RegistryKey defenderService = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Policies\Microsoft\Windows Defender");
-        //    object defenderServiceValue = defenderService.GetValue("DisableAntiSpyware");
-        //    if (!defenderServiceValue.Equals(0)) //This is the case in situations like Commando
-        //    {
-        //        Console.WriteLine("[-] The defender antispyware service is not enabled, so MpCmdRun will fail. Exiting...");
-        //        Environment.Exit(1);
-        //    }
-        //    defenderService.Close();
-
-        //    if (!Directory.Exists(@"C:\temp"))
-        //    {
-        //        Console.WriteLine(@"[-] C:\Temp\ doesn't exist. Creating it.");
-        //        Directory.CreateDirectory(@"C:\Temp");
-        //    }
-
-        //}
-
         public static byte[] HalfSplitter(byte[] originalarray, int lastgood) //Will round down to nearest int
         {
             byte[] splitarray = new byte[(originalarray.Length - lastgood)/2+lastgood];
@@ -108,7 +88,7 @@ namespace DefenderCheck
                 if (originalarray.Length < 256)
                 {
                     Array.Resize(ref offendingBytes, originalarray.Length);
-                    Buffer.BlockCopy(originalarray, originalarray.Length, offendingBytes, 0, originalarray.Length);
+                    Buffer.BlockCopy(originalarray, 0, offendingBytes, 0, originalarray.Length);
                 }
                 else
                 {
@@ -143,7 +123,6 @@ namespace DefenderCheck
                 return ScanResult.FileNotFound;
             }
 
-            var process = new Process();
             var mpcmdrun = new ProcessStartInfo(@"C:\Program Files\Windows Defender\MpCmdRun.exe")
             {
                 Arguments = $"-Scan -ScanType 3 -File \"{file}\" -DisableRemediation -Trace -Level 0x10",
@@ -154,42 +133,53 @@ namespace DefenderCheck
                 WindowStyle = ProcessWindowStyle.Hidden
             };
 
-            process.StartInfo = mpcmdrun;
-            process.Start();
-            process.WaitForExit(30000); //Wait 30s
-
-            if (!process.HasExited)
+            using (var process = new Process())
             {
-                process.Kill();
-                return ScanResult.Timeout;
-            }
+                process.StartInfo = mpcmdrun;
 
-            if (getsig)
-            {
-                string stdout;
-                string sigName;
-                while ((stdout = process.StandardOutput.ReadLine()) != null)
+                try
                 {
-                    if (stdout.Contains("Threat  "))
+                    process.Start();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[-] Failed to start Windows Defender: {ex.Message}");
+                    return ScanResult.Error;
+                }
+
+                process.WaitForExit(30000); //Wait 30s
+
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    return ScanResult.Timeout;
+                }
+
+                if (getsig)
+                {
+                    string stdout;
+                    while ((stdout = process.StandardOutput.ReadLine()) != null)
                     {
-                        string[] sig = stdout.Split(' ');
-                        sigName = sig[19]; // Lazy way to get the signature name from MpCmdRun
-                        Console.WriteLine($"File matched signature: \"{sigName}\"\n");
-                        break;
+                        if (stdout.Contains("Threat  "))
+                        {
+                            string[] sig = stdout.Split(' ');
+                            string sigName = sig.Length > 19 ? sig[19] : "Unknown";
+                            Console.WriteLine($"File matched signature: \"{sigName}\"\n");
+                            break;
+                        }
                     }
                 }
+
+                switch (process.ExitCode)
+                {
+                    case 0:
+                        return ScanResult.NoThreatFound;
+                    case 2:
+                        return ScanResult.ThreatFound;
+                    default:
+                        return ScanResult.Error;
+                }
             }
-            
-            switch (process.ExitCode)
-            {
-                case 0:
-                    return ScanResult.NoThreatFound;
-                case 2:
-                    return ScanResult.ThreatFound;
-                default:
-                    return ScanResult.Error;
-            }
-            
         }
 
         public enum ScanResult
@@ -212,6 +202,7 @@ namespace DefenderCheck
             if (bytes == null)
             {
                 Console.WriteLine("[-] Empty array supplied. Something is wrong...");
+                return;
             }
             int bytesLength = bytes.Length;
 
